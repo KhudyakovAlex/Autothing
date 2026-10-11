@@ -21,11 +21,15 @@ imports:
 classes:
 
   Identified:
-    title: Имеет глобальный идентификатор
+    title: Идентифицируемость
+    description: >-
+      Глобальный ID autothing + внешние идентификаторы с источником и валидностью.
+      Сквозная способность всех категорий, не категория (решение 2026-10-11).
     mixin: true
     slots:
       - id
       - name
+      - identifiers
 
   TemporalExtent:
     title: Протяжённость во времени
@@ -43,10 +47,15 @@ classes:
 
   Item:
     title: Объект
-    description: Физическая или логическая вещь, которой владеют, которую обслуживают и могут заменить.
+    description: >-
+      Физическая или логическая вещь, которой владеют, которую обслуживают и могут заменить.
+      Первый уровень специализации — item_kind: устройство / соединение / несущая конструкция / совокупность / программный компонент.
+      Совокупность (группа, подсистема) — логический объект; членство — Relation member_of (решение 2026-10-11).
     mixins: [Identified, TemporalExtent]
     slots:
       - type
+      - item_kind
+      - functional_domain
       - phases
 
   Location:
@@ -66,18 +75,43 @@ classes:
     description: >-
       Типизированное отношение между экземплярами категорий с интервалом валидности.
       Полноценная сущность: интервал, событие-источник, основание.
+      Одна механика, пять семейств (family); вид связи — Type с applies_to: relation,
+      задаёт семейство и схему атрибутов (решение 2026-10-11). RelationKind — базовый перечень ядра.
     mixins: [Identified, TemporalExtent]
     slots:
       - kind
+      - family
       - subject
       - object
+      - subject_port
+      - object_port
+      - medium
+      - carrier
       - basis
     slot_usage:
       kind:
         required: true
+      family:
+        required: true
       subject:
         required: true
       object:
+        required: true
+
+  ConnectionPoint:
+    title: Точка подключения
+    description: >-
+      Элемент Объекта: клемма, патрубок, канал контроллера, выход. Не объект — идентичность = родитель + обозначение.
+      Концы потоковых связей и связей данных. Ср. s223:ConnectionPoint (решение 2026-10-11, предварительно).
+    mixins: [TemporalExtent]
+    slots:
+      - of
+      - designation
+      - medium
+    slot_usage:
+      of:
+        required: true
+      designation:
         required: true
 
   DataPoint:
@@ -92,7 +126,7 @@ classes:
     title: Событие
     description: >-
       То, что произошло в момент или интервал. Мгновенное — valid_to = valid_from.
-      Порождает изменения связей (Р2). Документы — вложения события (Р3). Договор — протяжённое событие (Р6).
+      Порождает изменения связей (Р2). Факт, а не основание — основания см. Document.
     mixins: [Identified, TemporalExtent]
     slots:
       - type
@@ -101,28 +135,45 @@ classes:
 
   Type:
     title: Тип
-    description: Класс объектов, точек данных, мест, событий. Граница с мастер-данными — справочник типов.
+    description: Класс объектов, точек данных, мест, событий, документов. Граница с мастер-данными — справочник типов.
     mixins: [Identified]
     slots:
       - applies_to
+      - functional_domain
+
+  Document:
+    title: Документ
+    description: >-
+      Формальная запись между субъектами со статусом, служащая основанием для изменений в модели
+      (решение 2026-10-11; пересмотр Р3 и Р6). Наряд, заявка, договор, акт — специализации через type.
+      Файл — не документ, а вложение.
+    mixins: [Identified, TemporalExtent]
+    slots:
+      - type
+      - status
+      - parties
+      - concerns
+      - attachments
+    slot_usage:
+      status:
+        required: true
+
+# ---------------------------------------------------------------- вспомогательные
 
   Identifier:
-    title: Идентификатор
-    description: Внешний или производный идентификатор с системой-источником и валидностью (Ш6 прогона С5).
+    title: Внешний идентификатор
+    description: >-
+      Внешний или производный идентификатор с системой-источником и валидностью (Ш6 прогона С5).
+      Вспомогательная сущность внутри Identified, не категория.
     mixins: [TemporalExtent]
     slots:
       - value
       - system
-      - of
     slot_usage:
       value:
         required: true
       system:
         required: true
-      of:
-        required: true
-
-# ---------------------------------------------------------------- вспомогательные
 
   PhaseInterval:
     title: Фаза жизненного цикла с интервалом
@@ -136,7 +187,7 @@ classes:
 
   Attachment:
     title: Вложение
-    description: Файл-свидетельство события (решение Р3). Не категория.
+    description: Файл-свидетельство События или Документа (решение Р3, уточнено 2026-10-11). Не категория.
     slots:
       - uri
       - hash
@@ -164,21 +215,49 @@ slots:
     description: Событие, закрывшее интервал.
   type:
     range: Type
+  item_kind:
+    range: ItemKind
+    description: Первый уровень специализации Объекта.
+  functional_domain:
+    range: FunctionalDomain
+    description: >-
+      Функциональная область. У Типа — умолчание для фильтров (светильник → освещение);
+      у Объекта-совокупности — делает её Подсистемой («ИТП-2 здания 5»). Членство экземпляра в системе — через member_of.
   phases:
     range: PhaseInterval
     multivalued: true
     inlined_as_list: true
   kind:
     range: RelationKind
+  family:
+    range: RelationFamily
+    description: Семейство связи; задаёт форму — обязательные атрибуты и правила кардинальности.
   subject:
     range: Identified
     description: От кого связь (объект, место, субъект, точка данных).
   object:
     range: Identified
     description: К кому связь.
+  subject_port:
+    range: ConnectionPoint
+    description: Точка подключения на стороне subject (потоковые связи и связи данных).
+  object_port:
+    range: ConnectionPoint
+    description: Точка подключения на стороне object.
+  medium:
+    range: Medium
+    description: Среда потоковой связи или точки подключения.
+  carrier:
+    range: Item
+    description: Носитель потоковой связи — объект-соединение (кабель, труба, шина). Связь может существовать без носителя.
+  of:
+    range: Item
+    description: Объект, которому принадлежит точка подключения.
+  designation:
+    description: Обозначение на объекте — X1:3, DA+, патрубок 2.
   basis:
-    range: Event
-    description: Основание связи — договор, акт (Р6).
+    range: Document
+    description: Основание связи — договор, акт, наряд (Р6, пересмотрено 2026-10-11).
   owner:
     range: Identified
     description: Объект или Место, которому принадлежит точка данных.
@@ -196,9 +275,21 @@ slots:
     description: Значение идентификатора в системе-источнике.
   system:
     description: Система-источник или правило вывода.
-  of:
+  identifiers:
+    range: Identifier
+    multivalued: true
+    inlined_as_list: true
+    description: Внешние идентификаторы экземпляра.
+  status:
+    range: DocumentStatus
+  parties:
+    range: Party
+    multivalued: true
+    description: Стороны документа (выдал, принял, подписал). Роли сторон — через Relation.
+  concerns:
     range: Identified
-    description: Чей это идентификатор.
+    multivalued: true
+    description: Объекты, места, субъекты, к которым относится документ.
   phase:
     range: LifecyclePhase
   uri:
@@ -219,6 +310,103 @@ enums:
       party:
       data_point:
       event:
+      document:
+      relation:
+        description: "Вид связи — тоже Тип: задаёт семейство и схему атрибутов (решение 2026-10-11)."
+
+  RelationFamily:
+    title: Семейство связи
+    permissible_values:
+      structural:
+        title: структурная
+        description: часть, входит в, расположен в, смонтирован на. У «часть» и «расположен в» — один родитель в момент времени.
+      flow:
+        title: потоковая
+        description: питается от, подключён к, подача среды. Среда, направление, точки подключения, носитель.
+      responsibility:
+        title: ответственность
+        description: владеет, эксплуатирует, обслуживает, гарантирует. Роль, основание-документ, доля.
+      data:
+        title: данных
+        description: измеряет, управляет. Адрес (DALI, Modbus-регистр), направление.
+      lifecycle:
+        title: жизненного цикла
+        description: реализует, заменяет.
+
+  Medium:
+    title: Среда
+    description: Открытый список; ср. s223:Medium.
+    permissible_values:
+      electricity:
+        title: электричество
+      water:
+        title: вода
+      heat_carrier:
+        title: теплоноситель
+      air:
+        title: воздух
+      gas:
+        title: газ
+      data:
+        title: данные
+        description: DALI, Modbus, KNX, BACnet, Ethernet — протокол уточняется атрибутом.
+
+  ItemKind:
+    title: Вид объекта
+    description: Первый уровень специализации Объекта (PRD Заказчик 2 + решение 2026-10-11).
+    permissible_values:
+      device:
+        title: устройство
+      connection:
+        title: соединение
+        description: Кабель, линия, оптоволокно, труба, воздуховод — носитель связи.
+      structure:
+        title: несущая конструкция
+        description: Опора, эстакада, кронштейн.
+      collection:
+        title: совокупность
+        description: Группа, подсистема. Логический объект; члены — через member_of.
+      software:
+        title: программный компонент
+        description: >-
+          Прошивка, сервис, виртуальный шлюз, драйвер протокола, поток Node-RED.
+          Устанавливается, версионируется, заменяется; имеет владельца и лицензию (решение 2026-10-11).
+
+  FunctionalDomain:
+    title: Функциональная область
+    description: Открытый список; расширяется вертикалями.
+    permissible_values:
+      lighting:
+        title: освещение
+      power:
+        title: электроснабжение
+      hvac:
+        title: вентиляция и климат
+      heating:
+        title: теплоснабжение
+      water:
+        title: водоснабжение и канализация
+      security:
+        title: безопасность (ОПС, СКУД, видео)
+      transport:
+        title: вертикальный транспорт
+
+  DocumentStatus:
+    title: Статус документа
+    description: Общий жизненный цикл; специализации (наряд, договор) уточняют через Type.
+    permissible_values:
+      draft:
+        title: черновик
+      issued:
+        title: выдан
+      accepted:
+        title: принят
+      done:
+        title: исполнен
+      closed:
+        title: закрыт
+      cancelled:
+        title: аннулирован
 
   LifecyclePhase:
     title: Фаза жизненного цикла объекта
@@ -244,6 +432,10 @@ enums:
     permissible_values:
       part_of:
         title: часть
+        description: Физический состав. Дерево; замена части не меняет целое.
+      member_of:
+        title: входит в
+        description: Логическое членство в совокупности (группа, подсистема). Многие-ко-многим (решение 2026-10-11).
       located_in:
         title: расположен в
       mounted_on:
