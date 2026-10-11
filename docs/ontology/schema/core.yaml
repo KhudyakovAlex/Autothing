@@ -1,0 +1,271 @@
+id: https://autothing.dev/ontology/core
+name: autothing-core
+title: Ядро онтологии autothing
+description: >-
+  Восемь базовых категорий из core-categories.md и решения по итогам прогонов.
+  Только решённое; открытые вопросы — в core-categories.md, не здесь.
+version: 0.0.1
+license: TBD
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  at: https://autothing.dev/ontology/core/
+default_prefix: at
+default_range: string
+
+imports:
+  - linkml:types
+
+# ---------------------------------------------------------------- миксины
+
+classes:
+
+  Identified:
+    title: Имеет глобальный идентификатор
+    mixin: true
+    slots:
+      - id
+      - name
+
+  TemporalExtent:
+    title: Протяжённость во времени
+    description: >-
+      Интервал валидности и события, которые его открыли и закрыли (решение Р2).
+      Открытый конец — valid_to пуст.
+    mixin: true
+    slots:
+      - valid_from
+      - valid_to
+      - started_by
+      - ended_by
+
+# ---------------------------------------------------------------- категории
+
+  Item:
+    title: Объект
+    description: Физическая или логическая вещь, которой владеют, которую обслуживают и могут заменить.
+    mixins: [Identified, TemporalExtent]
+    slots:
+      - type
+      - phases
+
+  Location:
+    title: Место
+    description: Где объект находится. Иерархично — место содержит места.
+    mixins: [Identified, TemporalExtent]
+    slots:
+      - type
+
+  Party:
+    title: Субъект
+    description: Тот, кто владеет, эксплуатирует, обслуживает, отвечает. Только идентичность и контакты.
+    mixins: [Identified, TemporalExtent]
+
+  Relation:
+    title: Связь
+    description: >-
+      Типизированное отношение между экземплярами категорий с интервалом валидности.
+      Полноценная сущность: интервал, событие-источник, основание.
+    mixins: [Identified, TemporalExtent]
+    slots:
+      - kind
+      - subject
+      - object
+      - basis
+    slot_usage:
+      kind:
+        required: true
+      subject:
+        required: true
+      object:
+        required: true
+
+  DataPoint:
+    title: Точка данных
+    description: Измеряемая или управляемая величина. Принадлежит объекту или месту (решение Р5), не каналу контроллера.
+    mixins: [Identified, TemporalExtent]
+    slots:
+      - type
+      - owner
+
+  Event:
+    title: Событие
+    description: >-
+      То, что произошло в момент или интервал. Мгновенное — valid_to = valid_from.
+      Порождает изменения связей (Р2). Документы — вложения события (Р3). Договор — протяжённое событие (Р6).
+    mixins: [Identified, TemporalExtent]
+    slots:
+      - type
+      - participants
+      - attachments
+
+  Type:
+    title: Тип
+    description: Класс объектов, точек данных, мест, событий. Граница с мастер-данными — справочник типов.
+    mixins: [Identified]
+    slots:
+      - applies_to
+
+  Identifier:
+    title: Идентификатор
+    description: Внешний или производный идентификатор с системой-источником и валидностью (Ш6 прогона С5).
+    mixins: [TemporalExtent]
+    slots:
+      - value
+      - system
+      - of
+    slot_usage:
+      value:
+        required: true
+      system:
+        required: true
+      of:
+        required: true
+
+# ---------------------------------------------------------------- вспомогательные
+
+  PhaseInterval:
+    title: Фаза жизненного цикла с интервалом
+    description: Фаза — состояние объекта с интервалом (решение Р4).
+    mixins: [TemporalExtent]
+    slots:
+      - phase
+    slot_usage:
+      phase:
+        required: true
+
+  Attachment:
+    title: Вложение
+    description: Файл-свидетельство события (решение Р3). Не категория.
+    slots:
+      - uri
+      - hash
+      - attached_by
+
+# ---------------------------------------------------------------- слоты
+
+slots:
+  id:
+    identifier: true
+    range: uriorcurie
+    description: Глобальный ID autothing. Не меняется и не переиспользуется.
+  name:
+    title: Название
+  valid_from:
+    range: datetime
+    required: true
+  valid_to:
+    range: datetime
+  started_by:
+    range: Event
+    description: Событие, открывшее интервал.
+  ended_by:
+    range: Event
+    description: Событие, закрывшее интервал.
+  type:
+    range: Type
+  phases:
+    range: PhaseInterval
+    multivalued: true
+    inlined_as_list: true
+  kind:
+    range: RelationKind
+  subject:
+    range: Identified
+    description: От кого связь (объект, место, субъект, точка данных).
+  object:
+    range: Identified
+    description: К кому связь.
+  basis:
+    range: Event
+    description: Основание связи — договор, акт (Р6).
+  owner:
+    range: Identified
+    description: Объект или Место, которому принадлежит точка данных.
+  participants:
+    range: Identified
+    multivalued: true
+  attachments:
+    range: Attachment
+    multivalued: true
+    inlined_as_list: true
+  applies_to:
+    range: CategoryKind
+    description: К какой категории относится тип.
+  value:
+    description: Значение идентификатора в системе-источнике.
+  system:
+    description: Система-источник или правило вывода.
+  of:
+    range: Identified
+    description: Чей это идентификатор.
+  phase:
+    range: LifecyclePhase
+  uri:
+    range: uri
+  hash:
+  attached_by:
+    range: Party
+
+# ---------------------------------------------------------------- перечисления
+
+enums:
+
+  CategoryKind:
+    title: Категория
+    permissible_values:
+      asset:
+      location:
+      party:
+      data_point:
+      event:
+
+  LifecyclePhase:
+    title: Фаза жизненного цикла объекта
+    description: Решение Р4. Склад — Место, не фаза.
+    permissible_values:
+      planned:
+        title: проект
+      realized:
+        title: реализован
+        description: Терминальная фаза проектного объекта.
+      installed:
+        title: смонтирован
+      in_operation:
+        title: в эксплуатации
+      decommissioned:
+        title: выведен
+      disposed:
+        title: утилизирован
+
+  RelationKind:
+    title: Тип связи
+    description: Основные типы из core-categories.md и прогона С5. Расширяются вертикалями.
+    permissible_values:
+      part_of:
+        title: часть
+      located_in:
+        title: расположен в
+      mounted_on:
+        title: смонтирован на
+      powered_by:
+        title: питается от
+      connected_to:
+        title: подключён к
+      owns:
+        title: владеет
+      operates:
+        title: эксплуатирует
+      services:
+        title: обслуживает
+      guarantees:
+        title: гарантирует
+      measures:
+        title: измеряет
+      controls:
+        title: управляет
+      realizes:
+        title: реализует
+        description: Фактический объект реализует проектный (Р1).
+      replaces:
+        title: заменяет
