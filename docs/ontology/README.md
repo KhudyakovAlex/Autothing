@@ -1,6 +1,7 @@
 # Онтология autothing — рабочая область
 
 > Точка входа для любого агента/человека, который продолжает работу над онтологией. Читать после AGENTS.md и [`../concepts/ontology-strategy.md`](../concepts/ontology-strategy.md).
+> Синтаксис LinkML и YAML с нуля — [`linkml-intro.md`](linkml-intro.md).
 
 ## Зачем
 
